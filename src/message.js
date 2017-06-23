@@ -3,11 +3,12 @@
  * This file contains your bot code
  */
 
-const recastai = require('recastai');
-const download = require('image-downloader');
-const Vision =  require('@google-cloud/vision');
-const promiseWaterfall = require('promise.waterfall');
-const  request2 = require('superagent');
+ const recastai = require('recastai');
+ const download = require('image-downloader');
+ const Vision =  require('@google-cloud/vision');
+ const promiseWaterfall = require('promise.waterfall');
+ const  request2 = require('superagent');
+ const escape = require('escape-html');
 // This function is the core of the bot behaviour
 const replyMessage = (message) => {
   const vision = new Vision();
@@ -16,14 +17,14 @@ const replyMessage = (message) => {
   // Get text from message received
   const text = message.content
 
-  console.log('I receive: ', text)
+  //console.log('I receive: ', text)
 
   // Get senderId to catch unique conversation_token
   const senderId = message.senderId
 
   // Call Recast.AI SDK, through /converse route
   request.converseText(text, { conversationToken: senderId })
-  .then(result => {
+  .then(conversation => {
     /*
     * YOUR OWN CODE
     * Here, you can add your own process.
@@ -31,69 +32,66 @@ const replyMessage = (message) => {
     * Or: Update your mongo DB
     * etc...
     */
-    //console.log('resultat', result);
-        
-    if (result.action) {
-      console.log('The conversation action is: ', result.action.slug)
-    }
+    console.log('conversationat', message);
+
 
     // If there is not any message return by Recast.AI for this current conversation
-    if (!result.replies.length) {
+    if (message.type === 'picture'){
+      message.addReply({ type: 'text', content: 'Veuillez patienter, nous traitons votre demande.' })
+    } else if (!conversation.replies.length) {
       message.addReply({ type: 'text', content: 'I don\'t have the reply to this yet :)' })
     } else {
       // Add each reply received from API to replies stack
-      result.replies.forEach(replyContent => message.addReply({ type: 'text', content: replyContent }))
+      conversation.replies.forEach(replyContent => message.addReply({ type: 'text', content: replyContent }))
     }
 
     // Send all replies
-    message.reply()
+    return message.reply()
     .then(() => {
       // Download to a directory and save with the original filename 
-       //console.log("init", message);
-      const options = {
-        url: result.source,
-        dest: './photo.jpg'                  // Save to /path/to/dest/image.jpg 
+
+      // Gestion case de l'envoi du ticket
+      console.log("init", conversation);
+      if (message.type === 'picture') {
+        const options = {
+          url: conversation.source,
+          dest: './photo.jpg'                  // Save to /path/to/dest/image.jpg 
+        }
+
+        console.log("after modif", conversation);
+        return download.image(options).then(()=> {
+          var s = "";
+
+          var promiseMsg = message;
+          vision.detectText('./photo.jpg').then((results) => {
+          console.log(len(results))
+          const detections = results[0];
+          detections.forEach((text) =>{
+            // console.log('test', text);
+            //if(text.lowerCase().indexOf('total'))
+            s += text;
+            promiseMsg.addReply([{ type: 'text', content: text }])
+          });
+
+          return message.reply([{ type: 'text', content:  escape(s.substring(600)) }]);
+          // request2.post('https://api.recast.ai/connect/v1/conversations/'+message.conversationId+'/messages').set('Authorization', 'Token a869b3961fa080c090cb0ec743c0135d')
+          // .send(
+          //   { messages: [{ type: 'text', content:  escape(s.substring(600)) }] }
+          // ).end(function(err, res) {
+          //       console.log('error', err);
+          //  });
+
+          // })
+         }).catch((err) => {
+            console.error('ERROR:', err);
+         })
+       })
       }
-      
-      download.image(options);
-       var s = "";
-    
-        var promiseMsg = message;
-        vision.detectText('./photo.jpg').then((results) => {
-            const detections = results[0];
-            detections.forEach((text) =>{
-              console.log('test', text);
-              s += text;
-              promiseMsg.addReply([{ type: 'text', content: text }])
-            });
-        
-          console.log('reply',promiseMsg);
-          promiseMsg.reply();
-          request2.post('https://api.recast.ai/connect/v1/conversations/30999978-d795-4b77-bd3a-61bcccfac8d9/messages').set('Authorization', 'Token a869b3961fa080c090cb0ec743c0135d').send({ messages: [{ type: 'text', content: 'Hello, world!'+ s }] }).end(function(err, res) {
-    console.log(s);
-  });
-
-        })
-        .catch((err) => {
-          console.error('ERROR:', err);
-        });
-
-      /*}).catch((err) => {
-        throw err
-      })*/
-      
-      
-      // Do some code after sending messages
-    })
-    .catch(err => {
-      console.error('Error while sending message to channel', err)
     })
   })
   .catch(err => {
     console.error('Error while sending message to Recast.AI', err)
   })
-
- 
 }
 
 module.exports = replyMessage
