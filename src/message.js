@@ -57,25 +57,20 @@ const replyMessage = (message) => {
       
       download.image(options);
        var s = "";
-     /*return download.image(options).then(({ filename, image }) => {
-      
-       
-        return*/
-        var test = message;
-        console.log('test',test)
-         vision.detectText('./photo.jpg').then((results) => {
-            console.log('test2',test)
+    
+        var promiseMsg = message;
+        vision.detectText('./photo.jpg').then((results) => {
             const detections = results[0];
             detections.forEach((text) =>{
               console.log('test', text);
               s += text;
-              test.addReply([{ type: 'text', content: text }])
+              promiseMsg.addReply([{ type: 'text', content: text }])
             });
         
-          console.log('reply',test);
-          test.reply();
-          request2.post('https://api.recast.ai/connect/v1/conversations/30999978-d795-4b77-bd3a-61bcccfac8d9/messages').set('Authorization', 'Token a869b3961fa080c090cb0ec743c0135d').send({ messages: [{ type: 'text', content: 'Hello, world!'+ test }] }).end(function(err, res) {
-    console.log(res);
+          console.log('reply',promiseMsg);
+          promiseMsg.reply();
+          request2.post('https://api.recast.ai/connect/v1/conversations/30999978-d795-4b77-bd3a-61bcccfac8d9/messages').set('Authorization', 'Token a869b3961fa080c090cb0ec743c0135d').send({ messages: [{ type: 'text', content: 'Hello, world!'+ s }] }).end(function(err, res) {
+    console.log(s);
   });
 
         })
